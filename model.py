@@ -1,3 +1,4 @@
+import enum
 import torch
 from torch import nn
 from torch import optim
@@ -34,13 +35,36 @@ class mapping(nn.Module):
         return x
 
 class sythesis(nn.Module):
-    def __init__(self, dlatent_size = 512, in_ch = 512, out_ch = 512):
-        self.InBlock = InputBlock(in_ch, out_ch, dlatent_size)
+    def __init__(self, dlatent_size = 512, in_ch = 512):
+        self.InBlock = InputBlock(in_ch, 512, dlatent_size)
         synBlocks = []
+        rgbBlocks = []
         for i in range(6):
-            in_n = in_ch
-            if (i < 3):
-            
+            in_n = 512
+            if(i < 3):
+                synBlocks.append(SynBlock(512, 512, dlatent_size))
+            else:
+                synBlocks.append(SynBlock(in_n, in_n / 2, dlatent_size))
+                in_n = in_n / 2
+            if(i == 6):
+                rgbBlocks.append(EqConv2d(in_n / 2, 3, 1))
+        self.synLayer = nn.ModuleList(synBlocks)
+        self.rgbLayer = nn.Sequential(OrderedDict(rgbBlocks))
+    
+    def forward(self, latent):
+        x = self.InBlock(latent)
+        for i, blocks in enumerate(self.synLayer):
+            x = blocks(x, latent)
+        x = self.rgbLayer(x)
+             
+class generator(nn.Module):
+    def __init__(self, latent_size = 512, dlatent_size = 512):
+        self.mapping = mapping(latent_size = latent_size, dlatent_size = dlatent_size)
+        self.synthesis = sythesis(dlatent_size=dlatent_size)
         
+    def forward(self, latent):
+        dlatent = self.mapping(latent)
+        output = self.synthesis(dlatent)
+
         
     
