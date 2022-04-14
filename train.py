@@ -12,6 +12,8 @@ import numpy as np
 from model import generator
 from model import discriminator
 
+device = torch.device('cuda')
+
 netGen = generator().to(device)
 if (device.type == 'cuda') and (ngpu > 1):
     netGen = nn.DataParallel(netG, list(range(ngpu)))

@@ -7,7 +7,7 @@ from layers import EqConv2d, EqLinear, Scaler, latent_to_style, AdaIn, NoiseLaye
     
 class InputBlock(nn.Module):
     def __init__(self, in_feature, out_feature, dlatent_size = 512):
-        super.__init__(InputBlock, self)
+        super(InputBlock, self).__init__()
         self.num_feature = in_feature
         self.out_feature = out_feature
         self.const_weight = nn.Parameter(torch.randn(1, in_feature, 4, 4))
@@ -29,7 +29,7 @@ class InputBlock(nn.Module):
 
 class SynBlock(nn.Module):
     def __init__(self, in_feature, out_feature, dlatent_size = 512):
-        super.__init__(SynBlock, self)
+        super(SynBlock, self).__init__()
         self.num_feature = in_feature
         self.out_feature = out_feature
         self.upSample = nn.UpsamplingBilinear2d(scale_factor=2)

@@ -9,7 +9,7 @@ from layers import EqLinear, EqConv2d
 class mapping(nn.Module):
     
     def __init__(self, latent_size = 512, map_out_size = 512, dlatent_size = 512, layer_size = 8, dlatent_broadCast = False):
-        super.__init__(mapping, self)
+        super(mapping, self).__init__()
         self.latent_size = latent_size
         self.dlatent_size = dlatent_size
         self.map_out_size = map_out_size
@@ -27,7 +27,7 @@ class mapping(nn.Module):
             layer = EqLinear(map_in, map_out)
             layers.append(layer)
             layers.append(nn.LeakyReLU(negative_slope=0.2))
-        self.layer = nn.Sequential(OrderedDict(layers))
+        self.layer = nn.Sequential(*layers)
     
     def forward(self, x):
         x = self.layer(x)
@@ -36,7 +36,7 @@ class mapping(nn.Module):
 
 class sythesis(nn.Module):
     def __init__(self, dlatent_size = 512, in_ch = 512):
-        super.__init__(sythesis, self)
+        super(sythesis, self).__init__()
         self.InBlock = InputBlock(in_ch, 512, dlatent_size)
         synBlocks = []
         rgbBlocks = []
@@ -60,7 +60,7 @@ class sythesis(nn.Module):
              
 class generator(nn.Module):
     def __init__(self, latent_size = 512, dlatent_size = 512):
-        super.__init__(generator, self)
+        super(generator, self).__init__()
         self.mapping = mapping(latent_size = latent_size, dlatent_size = dlatent_size)
         self.synthesis = sythesis(dlatent_size=dlatent_size, in_ch = 512)
         
@@ -70,7 +70,7 @@ class generator(nn.Module):
 
 class discriminator(nn.Module):
     def __init__(self):
-        super.__init__(discriminator, self)
+        super(discriminator, self).__init__()
         self.fromRGB = nn.Sequential(
             nn.Conv2d(3, 16, 4, 2, 1),
             nn.LeakyReLU(0.2)
