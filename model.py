@@ -36,6 +36,7 @@ class mapping(nn.Module):
 
 class sythesis(nn.Module):
     def __init__(self, dlatent_size = 512, in_ch = 512):
+        super.__init__()
         self.InBlock = InputBlock(in_ch, 512, dlatent_size)
         synBlocks = []
         rgbBlocks = []
@@ -59,6 +60,7 @@ class sythesis(nn.Module):
              
 class generator(nn.Module):
     def __init__(self, latent_size = 512, dlatent_size = 512):
+        super.__init__()
         self.mapping = mapping(latent_size = latent_size, dlatent_size = dlatent_size)
         self.synthesis = sythesis(dlatent_size=dlatent_size)
         
@@ -66,5 +68,47 @@ class generator(nn.Module):
         dlatent = self.mapping(latent)
         output = self.synthesis(dlatent)
 
+class discriminator(nn.Module):
+    def __init__(self):
+        super.__init__()
+        self.fromRGB = nn.Sequential(
+            nn.Conv2d(3, 16, 4, 2, 1),
+            nn.LeakyReLU(0.2)
+            
+        )
+        ndf = 16
+        self.layer = nn.Sequential(
+            #512
+            nn.Conv2d(3, ndf, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            #256 
+            nn.Conv2d(16, ndf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            #128
+            nn.Conv2d(16, ndf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            #64
+            nn.Conv2d(16, ndf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            #32
+            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            #16
+            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            #8
+            nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            #4
+            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
+            nn.Sigmoid()
+        )
+        
         
     
