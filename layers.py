@@ -22,7 +22,7 @@ class EqConv2d(nn.Module):
     def forward(self, x):
         return self.layer(x)
 
-class Scaler(nn.module):
+class Scaler(nn.Module):
     def __init__(self, num_feature):
         super().__init__()
         self.weight = nn.Parameter(torch.zeros(1, num_feature, 1, 1))
