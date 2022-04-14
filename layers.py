@@ -4,7 +4,7 @@ from utils import equalizer
 
 class EqLinear(nn.Module):
     def __init__(self, in_ch, out_ch):
-        super.__init__()
+        super.__init__(EqLinear, self)
         layer = nn.Linear(in_ch, out_ch)
         layer.weight.data.normal_()
         layer.bias.data.zero_()
@@ -15,7 +15,7 @@ class EqLinear(nn.Module):
 
 class EqConv2d(nn.Module):
     def __init__(self, in_ch, out_ch, kernel_size, stride = 1, padding = 0, bias = True):
-        super.__init__()
+        super.__init__(EqConv2d, self)
         layer = nn.Conv2d(in_ch, out_ch, kernel_size, stride, padding, bias)
         layer.weight.data.normal_()
         layer.bias.data.zero_()
@@ -26,7 +26,7 @@ class EqConv2d(nn.Module):
 
 class Scaler(nn.Module):
     def __init__(self, num_feature):
-        super.__init__()
+        super.__init__(Scaler, self)
         self.weight = nn.Parameter(torch.zeros(1, num_feature, 1, 1))
         
     def forward(self, input):
@@ -34,7 +34,7 @@ class Scaler(nn.Module):
     
 class latent_to_style(nn.Module):
     def __init__(self, dlatent_size = 512, style_ch = 512):
-        super.__init__()
+        super.__init__(latent_to_style, self)
         self.dlatent_size = dlatent_size
         self.style_ch = style_ch
         self.transformation = EqLinear(dlatent_size, style_ch)
@@ -46,7 +46,7 @@ class latent_to_style(nn.Module):
 
 class AdaIn(nn.Module):
     def __init__(self, style_ch):
-        super.__init__()
+        super.__init__(AdaIn, self)
         self.layer = nn.InstanceNorm2d(style_ch)
     def forward(self, input, style):
         weight, bias = style.chunk(2,1)
@@ -55,7 +55,7 @@ class AdaIn(nn.Module):
 
 class NoiseLayer(nn.Module):
     def __init__(self, channels):
-        super().__init__()
+        super().__init__(NoiseLayer, self)
         self.weight = nn.Parameter(torch.zeros(channels))
         self.noise = None
     def forward(self, x, noise = None):
