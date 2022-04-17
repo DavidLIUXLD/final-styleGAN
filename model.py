@@ -112,6 +112,7 @@ class discriminator(nn.Module):
         )
     
     def forward(self, x):
+        x = self.fromRGB(x)
         output = self.layer(x)
     
         
