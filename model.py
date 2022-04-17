@@ -1,4 +1,5 @@
 import enum
+from turtle import forward
 import torch
 from torch import nn
 from torch import optim
@@ -45,10 +46,10 @@ class sythesis(nn.Module):
             if(i < 3):
                 synBlocks.append(SynBlock(512, 512, dlatent_size))
             else:
-                synBlocks.append(SynBlock(in_n, in_n / 2, dlatent_size))
-                in_n = in_n / 2
+                synBlocks.append(SynBlock(in_n, in_n // 2, dlatent_size))
+                in_n = in_n // 2
             if(i == 6):
-                rgbBlocks.append(EqConv2d(in_n / 2, 3, 1))
+                rgbBlocks.append(EqConv2d(in_n // 2, 3, 1))
         self.synLayer = nn.ModuleList(synBlocks)
         self.rgbLayer = nn.Sequential(OrderedDict(rgbBlocks))
     
@@ -109,6 +110,9 @@ class discriminator(nn.Module):
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
-        
+    
+    def forward(self, x):
+        output = self.layer(x)
+    
         
     

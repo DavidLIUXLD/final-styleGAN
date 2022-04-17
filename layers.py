@@ -16,7 +16,7 @@ class EqLinear(nn.Module):
 class EqConv2d(nn.Module):
     def __init__(self, in_ch, out_ch, kernel_size, stride = 1, padding = 0, bias = True):
         super(EqConv2d, self).__init__()
-        layer = nn.Conv2d(in_ch, out_ch, kernel_size, stride, padding, bias)
+        layer = nn.Conv2d(in_ch, out_ch, kernel_size, stride, padding, bias=bias)
         layer.weight.data.normal_()
         layer.bias.data.zero_()
         self.layer = equalizer(layer)
@@ -38,8 +38,6 @@ class latent_to_style(nn.Module):
         self.dlatent_size = dlatent_size
         self.style_ch = style_ch
         self.transformation = EqLinear(dlatent_size, style_ch)
-        self.transformation.layer.get_parameter('weight')[:style_ch] = 1
-        self.transformation.layer.get_parameter('bias')[style_ch:] = 0
     
     def forward(self, latent):
         return self.transformation(latent).unsqueeze(2).unsqueeze(3)
