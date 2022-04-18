@@ -25,7 +25,8 @@ class InputBlock(nn.Module):
         output = self.adaIn1(output, self.style1(latent))
         output = self.Active(self.Conv2d(output))
         output = self.noise2(output)
-        output = self.adaIn2(output, self.style2(latent))        
+        output = self.adaIn2(output, self.style2(latent))   
+        return output     
 
 class SynBlock(nn.Module):
     def __init__(self, in_feature, out_feature, dlatent_size = 512):
@@ -49,6 +50,7 @@ class SynBlock(nn.Module):
         output = self.adaIn(output, self.style1(latent))
         output = self.Active(self.Conv2(output))
         output = self.noise2(output)
-        output = self.adaIn(output, self.style2(latent)) 
+        output = self.adaIn(output, self.style2(latent))
+        return output 
 
   

@@ -37,7 +37,7 @@ class latent_to_style(nn.Module):
         super(latent_to_style, self).__init__()
         self.dlatent_size = dlatent_size
         self.style_ch = style_ch
-        self.transformation = EqLinear(dlatent_size, style_ch)
+        self.transformation = EqLinear(dlatent_size, style_ch * 2)
     
     def forward(self, latent):
         return self.transformation(latent).unsqueeze(2).unsqueeze(3)
@@ -47,7 +47,9 @@ class AdaIn(nn.Module):
         super(AdaIn, self).__init__()
         self.layer = nn.InstanceNorm2d(style_ch)
     def forward(self, input, style):
-        weight, bias = style.chunk(2,1)
+        weight, bias = style.chunk(2, 1)
+        print(weight.shape)
+        print(bias.shape)
         output = self.layer(input) * weight + bias
         return output
 

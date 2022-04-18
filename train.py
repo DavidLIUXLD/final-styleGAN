@@ -15,17 +15,44 @@ from model import discriminator
 device = torch.device('cuda')
 
 netGen = generator().to(device)
-if (device.type == 'cuda') and (ngpu > 1):
-    netGen = nn.DataParallel(netG, list(range(ngpu)))
+'''if (device.type == 'cuda') and (ngpu > 1):
+    netGen = nn.DataParallel(netG, list(range(ngpu)))'''
 
 netDiscrim = discriminator().to(device)
 
+lr = 0.000002
+beta1 = 0.5
+batch_size = 32
+image_size = 512
+nc = 3
+dim_latent = 512
+nz = 512
+num_epochs = 5
+workers = 0
+
+dataset = dset.ImageFolder(root='data',
+                           transform=transforms.Compose([
+                               transforms.Resize(image_size),
+                               transforms.CenterCrop(image_size),
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                           ]))
+train_size = int(0.8 * len(dataset))
+test_size = len(dataset) - train_size
+data_train, data_test = torch.utils.data.random_split(dataset, [train_size, test_size])
+dataloader = torch.utils.data.DataLoader(data_train, batch_size=batch_size,
+                                         shuffle=True, num_workers=workers)
+
+
+'''
 if (device.type == 'cuda') and (ngpu > 1):
     netDiscrim = nn.DataParallel(netD, list(range(ngpu)))
+'''    
+    
 
 criterion = nn.BCELoss()
 
-fixed_noise = torch.randn(64, nz, 1, 1, device=device)
+fixed_noise = torch.randn(64, dim_latent, 1, 1, device=device)
 
 real_label = 1.
 fake_label = 0.
@@ -51,6 +78,7 @@ for epoch in range(num_epochs):
         # Format batch
         real_cpu = data[0].to(device)
         b_size = real_cpu.size(0)
+        print(b_size)
         label = torch.full((b_size,), real_label, dtype=torch.float, device=device)
         # Forward pass real batch through D
         output = netDiscrim(real_cpu).view(-1)
@@ -62,9 +90,9 @@ for epoch in range(num_epochs):
 
         ## Train with all-fake batch
         # Generate batch of latent vectors
-        noise = torch.randn(b_size, nz, 1, 1, device=device)
+        latent = torch.randn((b_size, dim_latent), device=device)
         # Generate fake image batch with G
-        fake = netGen(noise)
+        fake = netGen(latent)
         label.fill_(fake_label)
         # Classify all fake batch with D
         output = netDiscrim(fake.detach()).view(-1)
