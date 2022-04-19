@@ -1,4 +1,3 @@
-from distutils.ccompiler import gen_lib_options
 from PIL import Image
 import torch
 import torch.nn as nn
@@ -149,15 +148,14 @@ def train(generator, discriminator, g_optim, d_optim, n_syn, dataloader,
                 save_model([generator,discriminator,g_optim, d_optim, g_loss, d_loss], 
                            ['generator', 'discriminator', 'g_optim', 'd_optim', 'g_loss', 'd_loss'])
                 save_model([(iteration, start, alpha, n_syn),(g_losses, d_losses)],['parameters','log'])
-                save
                 print("model saved")
                 
             
             
             
             
-generator = Generator()
-discriminator = Discriminator()
+generator = Generator().to(device)
+discriminator = Discriminator().to(device)
 d_optimizer = optim.Adam(discriminator.parameters(), lr=lr, betas=(beta1, 0.999))
 g_optimizer = optim.Adam(generator.parameters(), lr=lr, betas=(beta1, 0.999))
 dataset = dset.ImageFolder(root=data_path)

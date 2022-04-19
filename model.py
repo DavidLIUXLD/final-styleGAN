@@ -65,23 +65,21 @@ class Discriminator(nn.Module):
     def __init__(self, n_cov = 8):
         super(Discriminator, self).__init__()
         self.n_cov = n_cov
-        fromRGBs = []
-        layers = []
+        self.fromRGB = nn.ModuleList()
+        self.layers = nn.ModuleList()
         ch = 16
         for i in range(n_cov):
-            fromRGBs.append(EqConv2d(3, ch, 1))
+            self.fromRGB.append(EqConv2d(3, ch, 1))
             if i <= n_cov // 2:
-                layers.append(ConvBlock(ch, ch * 2, 3, 1))
+                self.layers.append(ConvBlock(ch, ch * 2, 3, 1))
                 ch = ch * 2
             else:
-                layers.append(ConvBlock(ch, ch, 3, 1))
-        self.fromRGB = nn.ModuleList(fromRGBs)
-        self.layers = nn.ModuleList(layers)
+                self.layers.append(ConvBlock(ch, ch, 3, 1))
         self.transformation = EqLinear(512, 1)
     
     def forward(self, x, alpha = -1):
-        output;
-        for i, block in self.layers:
+        output = None
+        for i in range(self.n_cov):
             if i == 0:
                 output = self.fromRGB[i](x)
             if i == self.n_cov - 1:
@@ -89,7 +87,7 @@ class Discriminator(nn.Module):
                 output_std = torch.sqrt(output_var)
                 mean_std = output_std.mean().expand(output.size(0), 1, 4, 4)
                 output = torch.cat([output, mean_std], 1)
-            output = block(x)
+            output = self.layers[i](output)
             if i < self.n_cov - 1:
                 output = nn.functional.interpolate(output, scale_factor=0.5, mode='bilinear', align_corners=False)
                 if 0 <= alpha < 1:

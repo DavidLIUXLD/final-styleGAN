@@ -57,7 +57,7 @@ class SynBlock(nn.Module):
 class ConvBlock(nn.Module):
     def __init__(self, in_feature, out_feature, kernel_size_1, padding_1, 
                  kernel_size_2 = None, padding_2 = None):
-        super().__init__()
+        super(ConvBlock,self).__init__()
         if kernel_size_2 == None:
             kernel_size_2 = kernel_size_1
         if padding_2 == None:

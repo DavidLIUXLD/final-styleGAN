@@ -45,8 +45,8 @@ class latent_to_style(nn.Module):
         self.dlatent_size = dlatent_size
         self.style_ch = style_ch
         self.transformation = EqLinear(dlatent_size, style_ch * 2)
-        self.transform.linear.bias.data[:style_ch] = 1
-        self.transform.linear.bias.data[style_ch:] = 0
+        self.transformation.layer.bias.data[:style_ch] = 1
+        self.transformation.layer.bias.data[style_ch:] = 0
     
     def forward(self, latent):
         return self.transformation(latent).unsqueeze(2).unsqueeze(3)
