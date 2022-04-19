@@ -1,11 +1,7 @@
-import enum
-from turtle import forward
 import torch
 from torch import nn
-from torch import optim
-from collections import OrderedDict
-from blocks import InputBlock, SynBlock
-from layers import EqLinear, EqConv2d
+from blocks import ConvBlock, InputBlock, SynBlock
+from layers import EqLinear, EqConv2d, PixelNorm
 
 class mapping(nn.Module):
     
@@ -16,94 +12,90 @@ class mapping(nn.Module):
         self.dlatent_broadCast = dlatent_broadCast
         
         active_layer = nn.LeakyReLU(negative_slope=0.2)
-        layers = []
+        layers = [PixelNorm()]
         for i in range(layer_size):
-            layer = EqLinear(dlatent_size, dlatent_size)
-            layers.append(layer)
+            layers.append(EqLinear(dlatent_size, dlatent_size))
             layers.append(nn.LeakyReLU(negative_slope=0.2))
         self.layer = nn.Sequential(*layers)
     
     def forward(self, x):
         x = self.layer(x)
-        #todo: broadcast
         return x
 
 class sythesis(nn.Module):
-    def __init__(self, dlatent_size = 512, in_ch = 512):
+    def __init__(self, dlatent_size = 512, in_ch = 512, n_syn = 7):
         super(sythesis, self).__init__()
         self.InBlock = InputBlock(in_ch, 512, dlatent_size)
         synBlocks = []
-        rgbBlocks = []
         in_n = 512
-        for i in range(6):
-            if(i < 3):
-                synBlocks.append(SynBlock(512, 512, dlatent_size))
+        for i in range(n_syn):
+            if(i < n_syn // 2):
+                synBlocks.append(SynBlock(in_ch, 512, dlatent_size))
             else:
                 synBlocks.append(SynBlock(in_n, in_n // 2, dlatent_size))
                 in_n = in_n // 2
-            if(i == 6):
-                rgbBlocks.append(EqConv2d(in_n // 2, 3, 1))
         self.synLayer = nn.ModuleList(synBlocks)
-        self.rgbLayer = nn.Sequential(OrderedDict(rgbBlocks))
+        self.rgbprevLayer = EqConv2d(in_n*2, 3, 1)
+        self.rgbLayer = nn.Sequential(EqConv2d(in_n, 3, 1), nn.LeakyReLU(0.2))
     
-    def forward(self, latent):
-        x = self.InBlock(latent)
+    def forward(self, latent, noise, alpha = -1, psi = 0):
+        x = self.InBlock(noise[0])
+        x_prev;
         for i, blocks in enumerate(self.synLayer):
-            x = blocks(x, latent)
+            x_prev = nn.functional.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
+            x = blocks(x_prev, latent, noise[i+1])
         x = self.rgbLayer(x)
-             
-class generator(nn.Module):
-    def __init__(self, latent_size = 512, dlatent_size = 512):
-        super(generator, self).__init__()
-        self.mapping = mapping(dlatent_size = dlatent_size)
-        self.synthesis = sythesis(dlatent_size = dlatent_size, in_ch = 512)
+        if 0 <= alpha < 1:
+            x_prev = self.rgbprevLayer(x_prev)
+            x = alpha * x + (1 - alpha) * x_prev
+        return x
+         
+class Generator(nn.Module):
+    def __init__(self, latent_size = 512, dlatent_size = 512, n_syn = 7):
+        super(Generator, self).__init__()
+        self.mapping = mapping(dlatent_size)
+        self.synthesis = sythesis(dlatent_size, latent_size, n_syn)
         
-    def forward(self, latent):
-        batch_size = latent.shape[0]
+    def forward(self, latent, noise, alpha = -1, psi = 0):
         dlatent = self.mapping(latent)
-        output = self.synthesis(dlatent)
+        output = self.synthesis(dlatent, noise, alpha, psi)
         return output
 
-class discriminator(nn.Module):
-    def __init__(self):
-        super(discriminator, self).__init__()
-        ndf = 16
-        self.layer = nn.Sequential(
-            #512
-            nn.Conv2d(3, ndf, 4, 2, 1, bias=False),
-            nn.LeakyReLU(0.2, inplace=True),
-            #256 
-            nn.Conv2d(ndf, ndf, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf),
-            nn.LeakyReLU(0.2, inplace=True),
-            #128
-            nn.Conv2d(ndf, ndf, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf),
-            nn.LeakyReLU(0.2, inplace=True),
-            #64
-            nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-            #32
-            nn.Conv2d(ndf * 2, ndf * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-            #16
-            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 4),
-            nn.LeakyReLU(0.2, inplace=True),
-            #8
-            nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 8),
-            nn.LeakyReLU(0.2, inplace=True),
-            #4
-            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
-            nn.Sigmoid()
-        )
+class Discriminator(nn.Module):
+    def __init__(self, n_cov = 8):
+        super(Discriminator, self).__init__()
+        self.n_cov = n_cov
+        fromRGBs = []
+        layers = []
+        ch = 16
+        for i in range(n_cov):
+            fromRGBs.append(EqConv2d(3, ch, 1))
+            if i <= n_cov // 2:
+                layers.append(ConvBlock(ch, ch * 2, 3, 1))
+                ch = ch * 2
+            else:
+                layers.append(ConvBlock(ch, ch, 3, 1))
+        self.fromRGB = nn.ModuleList(fromRGBs)
+        self.layers = nn.ModuleList(layers)
+        self.transformation = EqLinear(512, 1)
     
-    def forward(self, x):
-        output = self.layer(x)
+    def forward(self, x, alpha = -1):
+        output;
+        for i, block in self.layers:
+            if i == 0:
+                output = self.fromRGB[i](x)
+            if i == self.n_cov - 1:
+                output_var = output.var(0, unbaised = False) + 1e-8
+                output_std = torch.sqrt(output_var)
+                mean_std = output_std.mean().expand(output.size(0), 1, 4, 4)
+                output = torch.cat([output, mean_std], 1)
+            output = block(x)
+            if i < self.n_cov - 1:
+                output = nn.functional.interpolate(output, scale_factor=0.5, mode='bilinear', align_corners=False)
+                if 0 <= alpha < 1:
+                    output_next = self.fromRGB[i + 1](x)
+                    output_next = nn.functional.interpolate(output_next, scale_factor=0.5, mode = 'bilinear', align_corners=False)
+                    output = alpha * output + (1 - alpha) * output
+        output = output.squeeze(2).squeeze(2)
+        output = self.transformation(output)
         return output
-    
-        
-    
