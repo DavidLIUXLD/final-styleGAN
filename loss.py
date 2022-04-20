@@ -18,8 +18,8 @@ def dis_loss(real_pred, fake_pred):
     fake_loss = F.softplus(fake_pred)
     return real_loss.mean() + fake_loss.mean()
 
-def gen_loss(fake_pred):
-    output = F.softplus(-fake_pred).mean()
+def gen_loss(pred):
+    output = F.softplus(-pred).mean()
     output.requires_grad_()
     return output
 

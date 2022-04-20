@@ -23,11 +23,11 @@ class mapping(nn.Module):
         return x
 
 class sythesis(nn.Module):
-    def __init__(self, dlatent_size = 512, in_ch = 512, n_syn = 7):
+    def __init__(self, dlatent_size = 512, in_ch = 512, n_syn = 7, im_ch = 512):
         super(sythesis, self).__init__()
-        self.InBlock = InputBlock(in_ch, in_ch, dlatent_size)
+        self.InBlock = InputBlock(in_ch, im_ch, dlatent_size)
         synBlocks = []
-        in_n = 512
+        in_n = im_ch
         for i in range(n_syn):
             if(i < n_syn // 2):
                 synBlocks.append(SynBlock(in_ch, in_ch, dlatent_size))
@@ -51,10 +51,10 @@ class sythesis(nn.Module):
         return x
          
 class Generator(nn.Module):
-    def __init__(self, latent_size = 512, dlatent_size = 512, n_syn = 7):
+    def __init__(self, latent_size = 512, dlatent_size = 512, n_syn = 7, im_ch = 512):
         super(Generator, self).__init__()
         self.mapping = mapping(dlatent_size)
-        self.synthesis = sythesis(dlatent_size, latent_size, n_syn)
+        self.synthesis = sythesis(dlatent_size, latent_size, n_syn, im_ch)
         
     def forward(self, latent, noise, alpha = -1):
         dlatent = self.mapping(latent)
@@ -62,12 +62,12 @@ class Generator(nn.Module):
         return output
 
 class Discriminator(nn.Module):
-    def __init__(self, n_cov = 8):
+    def __init__(self, n_cov = 8, out_ch = 512):
         super(Discriminator, self).__init__()
         self.n_cov = n_cov
         self.fromRGB = nn.ModuleList()
         self.layers = nn.ModuleList()
-        ch = 16
+        ch = out_ch // (2 ** (n_cov // 2 + 1))
         for i in range(n_cov):
             self.fromRGB.append(EqConv2d(3, ch, 1))
             if i <= n_cov // 2:
@@ -78,7 +78,7 @@ class Discriminator(nn.Module):
                     self.layers.append(ConvBlock(ch + 1, ch, 3, 1, 4, 0))
                 else:
                     self.layers.append(ConvBlock(ch, ch, 3, 1))
-        self.transformation = EqLinear(512, 1)
+        self.transformation = EqLinear(out_ch, 1)
     
     def forward(self, x, alpha = -1):
         output = None
