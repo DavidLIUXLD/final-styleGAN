@@ -5,19 +5,20 @@ import torch.nn.parallel
 import torch.backends.cudnn
 import torch.optim as optim
 import torch.utils.data
-
+import torchvision
+from torchvision.utils import make_grid
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
-import torchvision.utils as utils
 from loss import dis_loss, gen_loss, grad_penalty
 from model import Generator
 from model import Discriminator
 
+
 n_gpu = 1
-device = torch.device('cuda:0')
+device = torch.device('cuda')
 lr = 0.002
 beta1 = 0.5
-batch_size = 32
+batch_size = 4
 image_size = 512
 nc = 3
 dim_latent = 512
@@ -63,6 +64,11 @@ def save_img(tensor, i):
     ndarr = grid.mul_(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
     img = Image.fromarray(ndarr)
     img.save(f'{save_path}sample-iter{i}.png')
+    
+def display_img(tensors):
+    grid = make_grid(tensors, nrow = 2)
+    img = torchvision.transforms.ToPILImage()(grid)
+    img.show()
 
 def save_model(models, names):
     for i in range(len(models)):
@@ -116,12 +122,13 @@ def train(generator, discriminator, g_optim, d_optim, n_syn, dataloader,
                 fake_pred = discriminator(fake_img, alpha)
             d_loss = dis_loss(real_pred, fake_pred)
             if(gemma != None):
-                gp = grad_penalty(discriminator, real_img, fake_img)
+                gp = grad_penalty(discriminator, real_img, fake_img, batch_size, nc, device)
                 d_loss = d_loss + gemma * gp
             d_optim.zero_grad()
             d_loss.backward()
             d_optim.step()
-            
+            if iteration == 0:
+                print("dis init pass")
             set_grad_flag(generator, True)
             set_grad_flag(discriminator, False)
             latent = torch.randn((batch_size, dim_latent), device=device)
@@ -139,9 +146,13 @@ def train(generator, discriminator, g_optim, d_optim, n_syn, dataloader,
             g_optim.zero_grad()
             g_loss.backward()
             g_optim.step()
-            
+            if iteration == 0:
+                print("gen init pass")
             g_losses.append(g_loss.item())
             d_losses.append(d_loss.item())
+            print("iteration: " + str(iteration))
+            img_list = fake_img[:4]
+            display_img(img_list)
             if iteration % 20 == 0:
                 save_img(fake_img.data.cpu(), iteration)
             if iteration % 1000 == 0:
@@ -154,8 +165,8 @@ def train(generator, discriminator, g_optim, d_optim, n_syn, dataloader,
             
             
             
-generator = Generator().to(device)
-discriminator = Discriminator().to(device)
+generator = Generator(512, dim_latent) .to(device)
+discriminator = Discriminator(8).to(device)
 d_optimizer = optim.Adam(discriminator.parameters(), lr=lr, betas=(beta1, 0.999))
 g_optimizer = optim.Adam(generator.parameters(), lr=lr, betas=(beta1, 0.999))
 dataset = dset.ImageFolder(root=data_path)

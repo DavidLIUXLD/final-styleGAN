@@ -27,7 +27,7 @@ class InputBlock(nn.Module):
         output = self.noise1(self.const_weight)
         output = self.adaIn1(output, self.style1(latent))
         output = self.Active(self.Conv2d(output))
-        output = self.noise2(output)
+        output = output + self.noise2(noise)
         output = self.adaIn2(output, self.style2(latent))   
         return output     
 
@@ -46,6 +46,7 @@ class SynBlock(nn.Module):
         self.Active = nn.LeakyReLU(0.2)
     
     def forward(self, x, latent, noise):
+        output = self.Conv1(x)
         output = output + self.noise1(noise)
         output = self.adaIn(output, self.style1(latent))
         output = self.Active(self.Conv2(output))
@@ -64,9 +65,9 @@ class ConvBlock(nn.Module):
             padding_2 = padding_1
         
         self.conv = nn.Sequential(
-            EqConv2d(in_feature, out_feature, kernel_size_1, padding_1),
+            EqConv2d(in_feature, out_feature, kernel_size_1, 1, padding_1),
             nn.LeakyReLU(0.2),
-            EqConv2d(out_feature, out_feature, kernel_size_2, padding_2),
+            EqConv2d(out_feature, out_feature, kernel_size_2, 1, padding_2),
             nn.LeakyReLU(0.2)
         )
     

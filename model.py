@@ -25,12 +25,12 @@ class mapping(nn.Module):
 class sythesis(nn.Module):
     def __init__(self, dlatent_size = 512, in_ch = 512, n_syn = 7):
         super(sythesis, self).__init__()
-        self.InBlock = InputBlock(in_ch, 512, dlatent_size)
+        self.InBlock = InputBlock(in_ch, in_ch, dlatent_size)
         synBlocks = []
         in_n = 512
         for i in range(n_syn):
             if(i < n_syn // 2):
-                synBlocks.append(SynBlock(in_ch, 512, dlatent_size))
+                synBlocks.append(SynBlock(in_ch, in_ch, dlatent_size))
             else:
                 synBlocks.append(SynBlock(in_n, in_n // 2, dlatent_size))
                 in_n = in_n // 2
@@ -38,9 +38,9 @@ class sythesis(nn.Module):
         self.rgbprevLayer = EqConv2d(in_n*2, 3, 1)
         self.rgbLayer = nn.Sequential(EqConv2d(in_n, 3, 1), nn.LeakyReLU(0.2))
     
-    def forward(self, latent, noise, alpha = -1, psi = 0):
-        x = self.InBlock(noise[0])
-        x_prev;
+    def forward(self, latent, noise, alpha = -1):
+        x = self.InBlock(latent, noise[0])
+        x_prev = None
         for i, blocks in enumerate(self.synLayer):
             x_prev = nn.functional.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
             x = blocks(x_prev, latent, noise[i+1])
@@ -56,9 +56,9 @@ class Generator(nn.Module):
         self.mapping = mapping(dlatent_size)
         self.synthesis = sythesis(dlatent_size, latent_size, n_syn)
         
-    def forward(self, latent, noise, alpha = -1, psi = 0):
+    def forward(self, latent, noise, alpha = -1):
         dlatent = self.mapping(latent)
-        output = self.synthesis(dlatent, noise, alpha, psi)
+        output = self.synthesis(dlatent, noise, alpha)
         return output
 
 class Discriminator(nn.Module):
@@ -74,7 +74,10 @@ class Discriminator(nn.Module):
                 self.layers.append(ConvBlock(ch, ch * 2, 3, 1))
                 ch = ch * 2
             else:
-                self.layers.append(ConvBlock(ch, ch, 3, 1))
+                if(i == n_cov - 1):
+                    self.layers.append(ConvBlock(ch + 1, ch, 3, 1, 4, 0))
+                else:
+                    self.layers.append(ConvBlock(ch, ch, 3, 1))
         self.transformation = EqLinear(512, 1)
     
     def forward(self, x, alpha = -1):
@@ -83,17 +86,18 @@ class Discriminator(nn.Module):
             if i == 0:
                 output = self.fromRGB[i](x)
             if i == self.n_cov - 1:
-                output_var = output.var(0, unbaised = False) + 1e-8
+                output_var = output.var(0, False) + 1e-8
                 output_std = torch.sqrt(output_var)
                 mean_std = output_std.mean().expand(output.size(0), 1, 4, 4)
                 output = torch.cat([output, mean_std], 1)
             output = self.layers[i](output)
             if i < self.n_cov - 1:
                 output = nn.functional.interpolate(output, scale_factor=0.5, mode='bilinear', align_corners=False)
-                if 0 <= alpha < 1:
+                if 0 <= alpha < 1 and i == 0:
                     output_next = self.fromRGB[i + 1](x)
                     output_next = nn.functional.interpolate(output_next, scale_factor=0.5, mode = 'bilinear', align_corners=False)
                     output = alpha * output + (1 - alpha) * output
+                    
         output = output.squeeze(2).squeeze(2)
         output = self.transformation(output)
         return output
