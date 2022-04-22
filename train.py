@@ -17,12 +17,12 @@ n_gpu = 1
 device = torch.device('cuda')
 lr = 0.001
 beta1 = 0.5
-batch_size = 8
+batch_size = 32
 image_size = 512
 nc = 3
-dim_latent = 256
-n_in = 256
-n_im = 256
+dim_latent = 512
+n_in = 512
+n_im = 512
 num_epochs = 2
 workers = 0
 n_syn = 7
@@ -38,6 +38,10 @@ iteration = 0
 start = 0
 alpha = 0.1
 gemma = 0.5
+resume = False
+cepoch = 0
+total_batch = train_size // batch_size
+total_batch  = total_batch if train_size % batch_size == 0 else total_batch + 1
 
 def set_grad_flag(module, flag):
     for p in module.parameters():
@@ -96,13 +100,32 @@ data_train, data_test = torch.utils.data.random_split(dataset, [train_size, test
 dataloader = torch.utils.data.DataLoader(data_train, batch_size=batch_size,
                                          shuffle=True, num_workers=workers)
 
+def load_model(generator, discriminator, g_optim, d_optim, g_losses, d_losses):
+    g_state = torch.load(f'{model_path}generator.pth')
+    d_state = torch.load(f'{model_path}discriminator.pth')
+    g_op_state = torch.load(f'{model_path}g_optim.pth')
+    d_op_state = torch.load(f'{model_path}d_optim.pth')
+    generator.load_state_dict(g_state)
+    discriminator.load_state_dict(d_state)
+    g_optim.load_state_dict(g_op_state)
+    d_optim.load_state_dict(d_op_state)
+    iteration, alpha, start, n_syn = torch.load(f'{model_path}parameters.pth')
+    g_losses, d_losses = torch.load(f'{model_path}log.pth')
+    return iteration, alpha, start, n_syn, g_losses, d_losses    
     
 def train(generator, discriminator, g_optim, d_optim, n_syn, dataloader, 
-          iteration = 0, start = 0, alpha = 0, loss = None, g_losses = [], d_losses = []):
+          iteration = 0, start = 0, alpha = 0, loss = None, g_losses = [], d_losses = [], resume = False):
     print("Starting Training\n")
     true_label = 1.
     false_label = 0.
+    epoch = cepoch
+    isResume = resume
     for epoch in range(num_epochs):
+        print("epoch: " + str(epoch))
+        if isResume:
+            isResume = False
+        else:
+            iteration = 0
         for i, data in enumerate(dataloader, 0):
             iteration += 1
             alpha = min(1, alpha + batch_size / train_size)
@@ -174,7 +197,7 @@ def train(generator, discriminator, g_optim, d_optim, n_syn, dataloader,
                 print("gen init pass" + str(g_loss))
             g_losses.append(g_loss.item())
             d_losses.append(d_loss.item())
-            print("iteration: " + str(iteration))
+            print("epoch: " + str(epoch) + " iteration: " + str(iteration) + "/" + str(total_batch - 1))
             if iteration % 100 == 0:
                 loss_current = "g: " + str(g_loss) + " d: " + str(d_loss)
                 print(loss_current) 
@@ -187,19 +210,24 @@ def train(generator, discriminator, g_optim, d_optim, n_syn, dataloader,
                 save_model([generator,discriminator,g_optim, d_optim], 
                            ['generator', 'discriminator', 'g_optim', 'd_optim'], 'model')
                 save_model([g_loss, d_loss], ['g_loss', 'd_loss]'], 'parae')
-                save_model([(iteration, start, alpha, n_syn),(g_losses, d_losses)],['parameters','log'], 'para')
+                save_model([(iteration, start, alpha, n_syn, epoch),(g_losses, d_losses)],['parameters','log'], 'para')
                 print("model saved")
+            if iteration == total_batch - 1:
+                break
     return g_losses, d_losses
 
+
+g_losses = []
+d_losses = []
 generator = Generator(latent_size=n_in, dlatent_size=dim_latent, im_ch=n_im).to(device)
 discriminator = Discriminator(n_cov=n_cov, out_ch=n_in).to(device)
 d_optimizer = optim.Adam(discriminator.parameters(), lr=lr, betas=(beta1, 0.999))
 g_optimizer = optim.Adam(generator.parameters(), lr=lr, betas=(beta1, 0.999))
+if resume:
+    iteration, alpha, start, n_syn, g_losses, d_losses = load_model(generator, discriminator, g_optimizer, d_optimizer, g_losses, d_losses)
 dataset = dset.ImageFolder(root=data_path)
 train_loader, test_loader = load_data(dataset, batch_size, image_size)
-g_losses = []
-d_losses = []
 Criterion = nn.BCEWithLogitsLoss()
 generator.train()
 discriminator.train()
-train(generator, discriminator, g_optimizer, d_optimizer, n_syn, train_loader, iteration, start, alpha)
+train(generator, discriminator, g_optimizer, d_optimizer, n_syn, train_loader, iteration, start, alpha, resume=resume)

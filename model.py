@@ -29,13 +29,9 @@ class sythesis(nn.Module):
         synBlocks = []
         in_n = im_ch
         for i in range(n_syn):
-            if(i < n_syn // 2):
-                synBlocks.append(SynBlock(in_ch, in_ch, dlatent_size))
-            else:
-                synBlocks.append(SynBlock(in_n, in_n // 2, dlatent_size))
-                in_n = in_n // 2
+            synBlocks.append(SynBlock(in_ch, in_ch, dlatent_size))
         self.synLayer = nn.ModuleList(synBlocks)
-        self.rgbprevLayer = EqConv2d(in_n*2, 3, 1)
+        self.rgbprevLayer = EqConv2d(in_n, 3, 1)
         self.rgbLayer = nn.Sequential(EqConv2d(in_n, 3, 1), nn.LeakyReLU(0.2))
     
     def forward(self, latent, noise, alpha = -1):

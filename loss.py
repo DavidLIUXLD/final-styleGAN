@@ -4,7 +4,10 @@ from torch.nn import functional as F
 
 #WS
 def grad_penalty(D, x_real, x_fake, batch_size, n_ch, device):
+    if x_real.shape[0] < batch_size:
+        batch_size = x_real.shape[0]
     t = torch.rand(batch_size, n_ch, 512, 512).to(device)
+    
     t = t.expand_as(x_real)
     mid = t * x_real + (1 - t) * x_fake
     mid.requires_grad_()
